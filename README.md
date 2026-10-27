@@ -100,7 +100,9 @@ esp32-ir/
 │   ├── dispositivos.php           # Gestão de aparelhos e alocação por slot
 │   ├── funcoes_ir.php             # Ações, modos, temperaturas e velocidades
 │   ├── ir/
-│   │   └── disparar.php           # Lógica de disparo e log para o ESP32
+│   │   ├── disparar.php           # Lógica de disparo e log para o ESP32
+│   │   ├── pendente.php           # Consulta de comandos pendentes (Polling a cada 1s)
+│   │   └── confirmar.php          # Confirmação de recebimento/execução pelo ESP32
 │   ├── marcas.php                 # CRUD de marcas
 │   ├── modelos.php                # CRUD de modelos de aparelhos
 │   ├── salas.php                  # CRUD de salas e ambientes
@@ -114,9 +116,12 @@ esp32-ir/
 │       ├── app.js                 # Utilitários de interface (Toasts, loaders, badges)
 │       └── dashboard.js           # Lógica de controle do climatizador e remotos
 ├── config/
-│   └── database.php               # Conexão PDO segura com MySQL
+│   └── database.php               # Conexão PDO segura com MySQL e config ESP32_IP
 ├── database/
 │   └── ir_control_schema.sql      # Estrutura completa das tabelas, views e seeds
+├── firmware_esp32/                # Código-fonte para o microcontrolador ESP32
+│   ├── firmware_esp32.ino         # Sketch Arduino com emissão no GPIO 4 (Web Server + Polling 1s)
+│   └── README.md                  # Esquemático de ligação, pinagem e guia de gravação
 └── includes/
     ├── auth.php                   # Controle de sessão e perfis de acesso
     └── helpers.php                # Funções auxiliares (jsonResponse, sanitização)

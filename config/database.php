@@ -10,6 +10,9 @@ define('DB_USER',    'root');
 define('DB_PASS',    '');
 define('DB_CHARSET', 'utf8mb4');
 
+// IP do microcontrolador ESP32 na rede local (Ex: '192.168.1.150' ou '' para modo polling)
+define('ESP32_IP', '');
+
 /**
  * Retorna a instância PDO (Singleton).
  * Em caso de falha, retorna JSON de erro e encerra a execução.

@@ -158,23 +158,30 @@ $payload = [
     'log_id'     => $log_id,
 ];
 
-// ── Opção B: Disparo HTTP direto para o ESP32 ─────────────────────────────
-// Descomente e defina ESP32_IP para ativar o disparo direto.
-//
-// $esp32_ip = '192.168.1.100'; // IP do ESP32 na rede local
-// $url = "http://{$esp32_ip}/ir/send";
-// $ch = curl_init($url);
-// curl_setopt_array($ch, [
-//     CURLOPT_POST           => true,
-//     CURLOPT_POSTFIELDS     => json_encode($payload),
-//     CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-//     CURLOPT_RETURNTRANSFER => true,
-//     CURLOPT_TIMEOUT        => 3,
-// ]);
-// $esp_response = curl_exec($ch);
-// $esp_status   = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-// curl_close($ch);
-// ─────────────────────────────────────────────────────────────────────────
+// ── Disparo HTTP direto para o ESP32 (se ESP32_IP estiver configurado) ────
+$esp32_ip   = defined('ESP32_IP') && ESP32_IP !== '' ? ESP32_IP : null;
+$esp_status = null;
+
+if ($esp32_ip) {
+    $url = "http://{$esp32_ip}/ir/send";
+    $ch  = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => json_encode($payload),
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 2,
+    ]);
+    $esp_response = curl_exec($ch);
+    $esp_status   = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($esp_status === 200 && $log_id) {
+        try {
+            $db->prepare("UPDATE log_disparos SET confirmado = 1 WHERE id = ?")->execute([$log_id]);
+        } catch (Exception $e) {}
+    }
+}
 
 jsonResponse([
     'success'   => true,
