@@ -33,7 +33,8 @@
 #include <ir_Coolix.h>
 #include <ir_Samsung.h>
 #include <ir_NEC.h>
-#include <ir_Sony.h>
+#include <ir_Gree.h>
+//#include <ir_Sony.h>
 
 // ============================================================================
 // CONFIGURAÇÕES DE HARDWARE E PINAGEM
@@ -44,8 +45,8 @@
 // ============================================================================
 // CONFIGURAÇÕES DE WI-FI
 // ============================================================================
-const char* WIFI_SSID     = "SUA_REDE_WIFI";       // Nome da rede Wi-Fi
-const char* WIFI_PASSWORD = "SUA_SENHA_WIFI";      // Senha da rede Wi-Fi
+const char* WIFI_SSID     = "Richter";       // Nome da rede Wi-Fi
+const char* WIFI_PASSWORD = "123456789";      // Senha da rede Wi-Fi
 
 // ============================================================================
 // CONFIGURAÇÕES DO SERVIDOR HTTP LOCAL NO ESP32
@@ -56,7 +57,7 @@ WebServer server(80);
 // CONFIGURAÇÕES DO MODO POLLING (Consulta a cada 1 segundo)
 // ============================================================================
 const bool   ENABLE_POLLING    = true;                        // Habilitado: consulta o servidor a cada 1 segundo
-const char*  SERVER_HOST       = "http://192.168.1.100";     // IP do computador rodando XAMPP (ajuste para seu IP)
+const char*  SERVER_HOST       = "http://192.168.1.232";     // IP do computador rodando XAMPP (ajuste para seu IP)
 const int    SALA_ID           = 1;                           // ID da Sala deste ESP32
 const unsigned long POLL_DELAY = 1000;                        // Intervalo exato de 1000 ms (1 segundo)
 unsigned long lastPollTime     = 0;
@@ -86,6 +87,87 @@ void blinkLed(int times = 1, int durationMs = 80) {
 }
 
 // ============================================================================
+// FUNÇÃO AUXILIAR: ENVIO DE CÓDIGO HEXADECIMAL GREE
+// ============================================================================
+// Suporta múltiplos formatos de entrada HEX para Gree:
+//   1. 64-bit Hex único: "0x4103205011200010" ou "4103205011200010"
+//   2. Array/lista de bytes Hex: "0x41, 0x03, 0x20, 0x50, 0x11, 0x20, 0x00, 0x10"
+//   3. Bytes com delimitadores: "41 03 20 50 11 20 00 10", "41:03:20:..." ou "[0x41, ...]"
+bool enviarComandoGree(String codigoStr) {
+  codigoStr.trim();
+
+  // Verifica se contém múltiplos delimitadores (vírgula, espaço, dois-pontos ou colchetes)
+  bool temDelimitadores = (codigoStr.indexOf(',') >= 0 || codigoStr.indexOf(' ') >= 0 ||
+                           codigoStr.indexOf(':') >= 0 || codigoStr.indexOf('[') >= 0);
+
+  if (temDelimitadores) {
+    uint8_t state[32];
+    int byteCount = 0;
+
+    // Normaliza limpando caracteres como colchetes e aspas
+    String limpa = "";
+    for (size_t i = 0; i < codigoStr.length(); i++) {
+      char c = codigoStr[i];
+      if (c != '[' && c != ']' && c != '"' && c != '\'') {
+        limpa += c;
+      }
+    }
+
+    char buffer[256];
+    strncpy(buffer, limpa.c_str(), sizeof(buffer));
+    buffer[sizeof(buffer) - 1] = '\0';
+
+    char* token = strtok(buffer, ", :;\t\r\n");
+    while (token != NULL && byteCount < 32) {
+      String t = String(token);
+      t.trim();
+      if (t.length() > 0) {
+        state[byteCount++] = (uint8_t)strtoul(t.c_str(), NULL, 16);
+      }
+      token = strtok(NULL, ", :;\t\r\n");
+    }
+
+    if (byteCount >= 8) {
+      Serial.printf("[IR] Enviando comando GREE (%d bytes em array)...\n", byteCount);
+      irsend.sendGree(state, byteCount);
+      return true;
+    }
+  }
+
+  // Tratamento para string HEX contínua (ex: "0x4103205011200010" ou "4103205011200010")
+  String hexOnly = codigoStr;
+  hexOnly.trim();
+  if (hexOnly.startsWith("0x") || hexOnly.startsWith("0X")) {
+    hexOnly = hexOnly.substring(2);
+  }
+
+  // Se tiver 16 ou mais caracteres hexadecimais pares (16 hex = 8 bytes)
+  if (hexOnly.length() >= 16 && (hexOnly.length() % 2 == 0)) {
+    int byteCount = hexOnly.length() / 2;
+    if (byteCount > 32) byteCount = 32;
+    uint8_t state[32];
+    for (int i = 0; i < byteCount; i++) {
+      char byteChars[3] = { hexOnly[i * 2], hexOnly[i * 2 + 1], '\0' };
+      state[i] = (uint8_t)strtoul(byteChars, NULL, 16);
+    }
+    Serial.printf("[IR] Enviando comando GREE (%d bytes Hex: 0x%s)...\n", byteCount, hexOnly.c_str());
+    irsend.sendGree(state, byteCount);
+    return true;
+  }
+
+  // Fallback: Tenta como uint64_t de 64 bits padrão
+  uint64_t codigoHex = strtoull(codigoStr.c_str(), NULL, 16);
+  if (codigoHex != 0) {
+    Serial.printf("[IR] Enviando comando GREE: 0x%016llX (64 bits)\n", codigoHex);
+    irsend.sendGree(codigoHex, 64);
+    return true;
+  }
+
+  Serial.println("[IR ERROR] Código GREE inválido. Formato esperado: Hex de 64 bits (ex: 0x4103205011200010) ou array de bytes (ex: 0x41, 0x03, ...).");
+  return false;
+}
+
+// ============================================================================
 // FUNÇÃO PRINCIPAL: EXECUÇÃO DO DISPARO INFRAVERMELHO
 // ============================================================================
 bool executarComandoIR(String protocolo, String codigoStr, int frequencia = 38) {
@@ -102,8 +184,13 @@ bool executarComandoIR(String protocolo, String codigoStr, int frequencia = 38) 
 
   bool sucesso = false;
 
-  // 1. PROTOCOLO RAW (Array JSON de durações de pulso em microssegundos)
-  if (protocolo == "RAW" || codigoStr.startsWith("[")) {
+  // 1. PROTOCOLO GREE (Ar-condicionado Gree, Elgin modelo Gree, etc.)
+  if (protocolo == "GREE" || protocolo == "GREE_AC" || protocolo.startsWith("GREE")) {
+    sucesso = enviarComandoGree(codigoStr);
+  }
+
+  // 2. PROTOCOLO RAW (Array JSON de durações de pulso em microssegundos)
+  else if (protocolo == "RAW" || codigoStr.startsWith("[")) {
     DynamicJsonDocument docRaw(4096);
     DeserializationError err = deserializeJson(docRaw, codigoStr);
 
@@ -251,11 +338,30 @@ void handleIRSend() {
 }
 
 // ROTA: GET /ir/test (Teste rápido de emissão de pulso)
+// Parâmetros opcionais: ?protocolo=GREE ou ?protocolo=COOLIX
 void handleIRTest() {
   habilitarCORS();
-  Serial.println("[IR TEST] Disparo de pulso teste acionado.");
-  bool ok = executarComandoIR("COOLIX", "0xB21F00", 38);
-  server.send(200, "application/json", ok ? "{\"success\":true,\"message\":\"Pulso teste enviado no GPIO 4!\"}" : "{\"success\":false}");
+  String proto = server.hasArg("protocolo") ? server.arg("protocolo") : "COOLIX";
+  proto.toUpperCase();
+  proto.trim();
+  Serial.printf("[IR TEST] Disparo de pulso teste acionado (Protocolo: %s).\n", proto.c_str());
+
+  bool ok = false;
+  if (proto == "GREE" || proto == "GREE_AC") {
+    // Código de teste Gree: Ligar / Modo Frio / 24°C / Fan Auto
+    ok = executarComandoIR("GREE", "0x4103205011200010", 38);
+  } else {
+    ok = executarComandoIR("COOLIX", "0xB21F00", 38);
+  }
+
+  DynamicJsonDocument doc(256);
+  doc["success"]   = ok;
+  doc["message"]   = ok ? "Pulso teste (" + proto + ") enviado no GPIO 4!" : "Falha ao enviar pulso teste.";
+  doc["protocolo"] = proto;
+
+  String res;
+  serializeJson(doc, res);
+  server.send(ok ? 200 : 500, "application/json", res);
 }
 
 // ROTA: GET / (Página Web de Status e Diagnóstico)
@@ -282,6 +388,8 @@ void handleRoot() {
   html += ".label{color:#94a3b8;} .val{font-weight:600;font-family:monospace;}";
   html += ".btn{background:#0284c7;color:#fff;border:none;padding:.75rem 1.25rem;border-radius:.5rem;cursor:pointer;font-weight:600;width:100%;margin-top:1.5rem;}";
   html += ".btn:hover{background:#0369a1;}";
+  html += ".btn-gree{background:#059669;color:#fff;border:none;padding:.75rem 1.25rem;border-radius:.5rem;cursor:pointer;font-weight:600;width:100%;margin-top:.6rem;}";
+  html += ".btn-gree:hover{background:#047857;}";
   html += "</style></head><body><div class='card'>";
   html += "<h1>📡 ESP32 IR Controller <span class='badge'>Online</span></h1>";
   html += "<div class='item'><span class='label'>Pino IR Emissor:</span><span class='val' style='color:#38bdf8'>GPIO " + String(IR_PIN) + "</span></div>";
@@ -290,7 +398,8 @@ void handleRoot() {
   html += "<div class='item'><span class='label'>Uptime:</span><span class='val'>" + String(uptimeStr) + "</span></div>";
   html += "<div class='item'><span class='label'>Total de Disparos:</span><span class='val'>" + String(totalDisparos) + "</span></div>";
   html += "<div class='item'><span class='label'>Último Comando:</span><span class='val' style='color:#10b981'>" + ultimoComando + "</span></div>";
-  html += "<button class='btn' onclick=\"fetch('/ir/test').then(r=>r.json()).then(d=>alert(d.message))\">⚡ Testar Pulso IR (GPIO 4)</button>";
+  html += "<button class='btn' onclick=\"fetch('/ir/test').then(r=>r.json()).then(d=>alert(d.message))\">⚡ Testar Pulso Coolix (GPIO 4)</button>";
+  html += "<button class='btn-gree' onclick=\"fetch('/ir/test?protocolo=GREE').then(r=>r.json()).then(d=>alert(d.message))\">❄️ Testar Pulso Gree Hex (GPIO 4)</button>";
   html += "</div></body></html>";
 
   server.send(200, "text/html", html);

@@ -48,7 +48,7 @@ Abra o **Arduino IDE** e acesse:
 `Sketch` ➔ `Incluir Biblioteca` ➔ `Gerenciar Bibliotecas...` (ou `Ctrl + Shift + I`):
 
 1. **IRremoteESP8266** (por *David Conroy, crankyoldgit*)
-   - Suporta Coolix, NEC, Samsung AC, Sony, LG, Panasonic e sinais RAW.
+   - Suporta Coolix, Gree, NEC, Samsung AC, Sony, LG, Panasonic e sinais RAW.
 2. **ArduinoJson** (por *Benoit Blanchon*)
    - Versão 6.x ou 7.x recomendada.
 
@@ -98,6 +98,10 @@ Recebe o JSON emitido pela aplicação PHP:
 ```
 
 ### 2. Protocolos Suportados no Firmware:
+- **GREE / GREE_AC:** Climatizadores Gree e compatíveis. Suporta múltiplos formatos Hex:
+  - 64-bit Hex único (8 bytes): `"0x4103205011200010"` ou `"4103205011200010"`
+  - Array/lista de bytes Hex: `"0x41, 0x03, 0x20, 0x50, 0x11, 0x20, 0x00, 0x10"`
+  - Separados por espaço ou colchetes: `"41 03 20 50 11 20 00 10"` ou `"[0x41, 0x03, ...]"`
 - **COOLIX:** Elgin, Midea, Springer (códigos de 24 bits, ex: `0xB21F00`).
 - **NEC:** LG, TVs, Projetores (códigos de 32 bits, ex: `0x88B44BB4`).
 - **SAMSUNG / SAMSUNG_AC:** Climatizadores e TVs Samsung.
