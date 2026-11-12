@@ -138,6 +138,7 @@ $initials = strtoupper(mb_substr($user['nome_real'] ?? $user['username'] ?? 'A',
           <table class="ir-table">
             <thead>
               <tr>
+                <th>ID</th>
                 <th>Sala</th>
                 <th>Slot</th>
                 <th>Tipo</th>
@@ -148,7 +149,7 @@ $initials = strtoupper(mb_substr($user['nome_real'] ?? $user['username'] ?? 'A',
               </tr>
             </thead>
             <tbody id="dispositivos-tbody">
-              <tr><td colspan="7" class="text-center py-4"><span class="spinner-ir"></span> Carregando...</td></tr>
+              <tr><td colspan="8" class="text-center py-4"><span class="spinner-ir"></span> Carregando...</td></tr>
             </tbody>
           </table>
         </div>

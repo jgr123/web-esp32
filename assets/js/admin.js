@@ -171,14 +171,14 @@ async function deleteSala(id, nome) {
    ════════════════════════════════════════════════════════════════ */
 async function loadDispositivos() {
   const tbody = document.getElementById('dispositivos-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4"><span class="spinner-ir"></span> Carregando dispositivos...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><span class="spinner-ir"></span> Carregando dispositivos...</td></tr>';
 
   try {
     const res = await api.dispositivos.list();
     const disps = res.data || [];
 
     if (!disps.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Nenhum dispositivo cadastrado.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Nenhum dispositivo cadastrado.</td></tr>';
       return;
     }
 
@@ -189,6 +189,7 @@ async function loadDispositivos() {
 
       return `
         <tr>
+          <td><span class="mono" style="color:var(--accent-blue);font-weight:600">#${d.dispositivo_id}</span></td>
           <td style="font-weight:600">🏢 ${esc(d.sala)}</td>
           <td>${slotBadge}</td>
           <td>${tipoIcon(d.tipo)} ${esc(d.tipo)}</td>
@@ -206,7 +207,7 @@ async function loadDispositivos() {
     }).join('');
 
   } catch (e) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-danger">Erro ao carregar dispositivos.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-danger">Erro ao carregar dispositivos.</td></tr>';
   }
 }
 
